@@ -1,63 +1,58 @@
-const csvFileURL = 'https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data%20-%20Copy.csv';
 let mediaData = [];
 let viewedItems = new Set(JSON.parse(localStorage.getItem('viewedItems') || '[]'));
 
-// Hàm này bây giờ tải CSV từ GitHub
-function loadMediaData() {
+// Load CSV file
+function loadCSV() {
+  const fileInput = document.getElementById('csvFile');
   const errorMessage = document.getElementById('errorMessage');
+  const file = fileInput.files[0];
 
-  fetch(csvFileURL)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+  // Reset error message
+  errorMessage.textContent = '';
+
+  if (!file) {
+    errorMessage.textContent = 'Please select a CSV file.';
+    return;
+  }
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true, // Bỏ qua dòng trống
+    complete: function (results) {
+      if (results.errors.length > 0) {
+        errorMessage.textContent = 'Error parsing CSV: ' + results.errors.map(e => e.message).join('; ');
+        console.error('CSV parsing errors:', results.errors);
+        // Tiếp tục xử lý các dòng hợp lệ
       }
-      return response.text(); // Lấy dữ liệu CSV dưới dạng text
-    })
-    .then(csvText => {
-      // Sử dụng Papa.parse để xử lý dữ liệu CSV
-      const results = Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true,
-        complete: function(results) { // Chuyển logic xử lý vào hàm complete
-          if (results.errors.length > 0) {
-            errorMessage.textContent = 'Error parsing CSV: ' + results.errors.map(e => e.message).join('; ');
-            console.error('CSV parsing errors:', results.errors);
-            return;
-          }
 
-          if (!results.data || results.data.length === 0) {
-            errorMessage.textContent = 'CSV file is empty or invalid.';
-            return;
-          }
+      if (!results.data || results.data.length === 0) {
+        errorMessage.textContent = 'CSV file is empty or invalid.';
+        return;
+      }
 
-          // Check required columns
-          const requiredColumns = ['id', 'url', 'title'];
-          const firstRow = results.data[0];
-          const missingColumns = requiredColumns.filter(col => !firstRow.hasOwnProperty(col));
-          if (missingColumns.length > 0) {
-            errorMessage.textContent = 'Missing required columns in CSV: ' + missingColumns.join(', ');
-            return;
-          }
+      // Check required columns
+      const requiredColumns = ['id', 'url', 'title'];
+      const firstRow = results.data[0];
+      const missingColumns = requiredColumns.filter(col => !firstRow.hasOwnProperty(col));
+      if (missingColumns.length > 0) {
+        errorMessage.textContent = 'Missing required columns in CSV: ' + missingColumns.join(', ');
+        return;
+      }
 
-          // Lọc các dòng hợp lệ (có đủ cột id, url, title)
-          mediaData = results.data.filter(item => item.id && item.url && item.title);
-          if (mediaData.length === 0) {
-            errorMessage.textContent = 'No valid data found in CSV. Ensure each row has id, url, and title.';
-            return;
-          }
-          renderMedia(); // Gọi renderMedia sau khi lấy và xử lý xong
-        },
-        error: function(error) {
-          errorMessage.textContent = 'Error reading CSV file: ' + error.message;
-          console.error('Error reading CSV:', error);
-        }
-      });
-    })
-    .catch(error => {
-      errorMessage.textContent = 'Error fetching CSV file from GitHub: ' + error.message;
-      console.error('Error fetching CSV from GitHub:', error);
-    });
+      // Lọc các dòng hợp lệ (có đủ cột id, url, title)
+      mediaData = results.data.filter(item => item.id && item.url && item.title);
+      if (mediaData.length === 0) {
+        errorMessage.textContent = 'No valid data found in CSV. Ensure each row has id, url, and title.';
+        return;
+      }
+
+      renderMedia();
+    },
+    error: function (err) {
+      errorMessage.textContent = 'Error reading CSV file: ' + err.message;
+      console.error('Error reading CSV:', err);
+    }
+  });
 }
 
 // Render media grid
@@ -163,9 +158,3 @@ function sortMedia() {
 document.getElementById('videoModal').onclick = function (e) {
   if (e.target === this) closeModal();
 };
-
-// Gọi hàm loadMediaData khi trang tải xong
-window.onload = loadMediaData;
-
-// Xóa hoặc comment phần này, vì mình không dùng input file nữa
-// document.getElementById('csvFile').addEventListener('change', loadCSV);
