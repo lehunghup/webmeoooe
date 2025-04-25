@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Library</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Media Library</h1>
+    <div>
+      <label for="sort">Sort by:</label>
+      <select id="sort" onchange="sortMedia()">
+        <option value="id">ID</option>
+        <option value="title">Title</option>
+        <option value="how_long_ago">Upload Time</option>
+        <option value="size_formatted">Size</option>
+      </select>
+      <input type="file" id="csvFile" accept=".csv" onchange="loadCSV()">
+    </div>
+    <div id="errorMessage" style="color: red; text-align: center; margin: 10px 0;"></div>
+    <div id="mediaGrid" class="media-grid"></div>
+  </div>
+  <!-- Modal for video playback -->
+  <div id="videoModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">×</span>
+      <h2 id="videoTitle"></h2>
+      <video id="modalVideo" controls style="width: 100%; max-height: 80vh;"></video>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
