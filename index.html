@@ -59,13 +59,14 @@
       max-width: 80%;
       word-wrap: break-word;
     }
-    .loading {
+    .loading, .error {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       color: white;
       font-size: 24px;
+      text-align: center;
     }
   </style>
 </head>
@@ -81,6 +82,7 @@
       <button onclick="nextVideo()">Next</button>
     </div>
     <div class="loading" id="loading">Đang tải...</div>
+    <div class="error" id="error" style="display: none;"></div>
   </div>
 
   <script>
@@ -89,6 +91,7 @@
     const videoPlayer = document.getElementById("videoPlayer");
     const videoTitle = document.getElementById("videoTitle");
     const loading = document.getElementById("loading");
+    const error = document.getElementById("error");
 
     // Hàm parse CSV thành mảng đối tượng
     function parseCSV(csvText) {
@@ -121,6 +124,16 @@
       return savedIndex !== null ? parseInt(savedIndex) : 0;
     }
 
+    // Hàm kiểm tra link video hợp lệ
+    async function isValidVideo(url) {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok && response.headers.get('content-type').includes('video');
+      } catch {
+        return false;
+      }
+    }
+
     // Tải file CSV từ GitHub
     fetch('https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data.csv')
       .then(response => response.text())
@@ -130,25 +143,50 @@
         if (videoList.length > 0) {
           currentVideoIndex = getLastVideoIndex();
           if (currentVideoIndex >= videoList.length) {
-            currentVideoIndex = 0; // Reset nếu chỉ số vượt quá danh sách
+            currentVideoIndex = 0;
           }
           playVideo(currentVideoIndex);
+        } else {
+          error.textContent = 'Không tìm thấy video trong danh sách';
+          error.style.display = 'block';
         }
       })
-      .catch(error => {
-        console.error('Lỗi tải CSV:', error);
-        loading.textContent = 'Lỗi tải danh sách video';
+      .catch(err => {
+        console.error('Lỗi tải CSV:', err);
+        loading.style.display = 'none';
+        error.textContent = 'Lỗi tải danh sách video';
+        error.style.display = 'block';
       });
 
     // Hàm phát video hiện tại
-    function playVideo(index) {
+    async function playVideo(index) {
       if (index >= 0 && index < videoList.length) {
-        videoPlayer.src = videoList[index].url;
-        videoPlayer.currentTime = 0; // Đặt thời gian về 0 để phát từ đầu
-        videoTitle.textContent = videoList[index].title;
-        videoPlayer.play();
+        const video = videoList[index];
+        error.style.display = 'none';
+        loading.style.display = 'block';
+
+        // Kiểm tra link video
+        const isValid = await isValidVideo(video.url);
+        if (!isValid) {
+          loading.style.display = 'none';
+          error.textContent = `Video "${video.title}" không tải được. Chuyển sang video khác...`;
+          error.style.display = 'block';
+          setTimeout(() => nextVideo(), 2000); // Chuyển video sau 2 giây
+          return;
+        }
+
+        videoPlayer.src = video.url;
+        videoPlayer.currentTime = 0; // Phát từ đầu
+        videoTitle.textContent = video.title;
+        videoPlayer.play().catch(err => {
+          loading.style.display = 'none';
+          error.textContent = `Lỗi phát video: ${err.message}`;
+          error.style.display = 'block';
+          setTimeout(() => nextVideo(), 2000);
+        });
         currentVideoIndex = index;
-        saveVideoIndex(index); // Lưu chỉ số video vào localStorage
+        saveVideoIndex(index);
+        loading.style.display = 'none';
       }
     }
 
@@ -157,8 +195,7 @@
       if (currentVideoIndex < videoList.length - 1) {
         playVideo(currentVideoIndex + 1);
       } else {
-        // Optional: Quay lại video đầu tiên nếu muốn lặp danh sách
-        playVideo(0);
+        playVideo(0); // Quay lại đầu danh sách
       }
     }
 
