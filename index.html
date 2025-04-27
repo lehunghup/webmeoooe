@@ -59,13 +59,14 @@
       max-width: 80%;
       word-wrap: break-word;
     }
-    .loading {
+    .loading, .error {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       color: white;
       font-size: 24px;
+      text-align: center;
     }
   </style>
 </head>
@@ -81,14 +82,19 @@
       <button onclick="nextVideo()">Next</button>
     </div>
     <div class="loading" id="loading">Đang tải...</div>
+    <div class="error" id="error" style="display: none;"></div>
   </div>
 
   <script>
     let videoList = [];
     let currentVideoIndex = 0;
+    let failedAttempts = 0;
+    const maxAttempts = 10; // Giới hạn số lần thử video không hợp lệ
+    const triedVideos = new Set(); // Theo dõi video đã thử
     const videoPlayer = document.getElementById("videoPlayer");
     const videoTitle = document.getElementById("videoTitle");
     const loading = document.getElementById("loading");
+    const error = document.getElementById("error");
 
     // Hàm parse CSV thành mảng đối tượng
     function parseCSV(csvText) {
@@ -107,6 +113,7 @@
           });
         }
       }
+      console.log('Danh sách video:', result); // Log danh sách video
       return result;
     }
 
@@ -123,32 +130,64 @@
 
     // Tải file CSV từ GitHub
     fetch('https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data.csv')
-      .then(response => response.text())
+      .then(response => {
+        if (!response.ok) throw new Error(`Không tìm thấy file CSV: ${response.status} ${response.statusText}`);
+        return response.text();
+      })
       .then(data => {
+        console.log('Nội dung CSV:', data); // Log nội dung CSV
         videoList = parseCSV(data);
         loading.style.display = 'none';
         if (videoList.length > 0) {
           currentVideoIndex = getLastVideoIndex();
           if (currentVideoIndex >= videoList.length) {
-            currentVideoIndex = 0; // Reset nếu chỉ số vượt quá danh sách
+            currentVideoIndex = 0;
           }
           playVideo(currentVideoIndex);
+        } else {
+          error.textContent = 'Không tìm thấy video hợp lệ trong danh sách. Kiểm tra file data.csv.';
+          error.style.display = 'block';
         }
       })
-      .catch(error => {
-        console.error('Lỗi tải CSV:', error);
-        loading.textContent = 'Lỗi tải danh sách video';
+      .catch(err => {
+        console.error('Lỗi tải CSV:', err);
+        loading.style.display = 'none';
+        error.textContent = `Lỗi tải danh sách video: ${err.message}`;
+        error.style.display = 'block';
       });
 
     // Hàm phát video hiện tại
     function playVideo(index) {
       if (index >= 0 && index < videoList.length) {
-        videoPlayer.src = videoList[index].url;
-        videoPlayer.currentTime = 0; // Đặt thời gian về 0 để phát từ đầu
-        videoTitle.textContent = videoList[index].title;
-        videoPlayer.play();
+        const video = videoList[index];
+        console.log(`Phát video: ${video.title} (${video.url})`); // Log video đang phát
+        error.style.display = 'none';
+        loading.style.display = 'block';
+
+        videoPlayer.src = video.url;
+        videoPlayer.currentTime = 0;
+        videoTitle.textContent = video.title;
+        videoPlayer.play()
+          .then(() => {
+            loading.style.display = 'none';
+            failedAttempts = 0; // Reset khi phát thành công
+            triedVideos.clear();
+          })
+          .catch(err => {
+            console.error(`Lỗi phát video ${video.url}:`, err.message);
+            loading.style.display = 'none';
+            error.textContent = `Video "${video.title}" không tải được: ${err.message}. Chuyển sang video khác...`;
+            error.style.display = 'block';
+            failedAttempts++;
+            triedVideos.add(video.url);
+            if (failedAttempts >= maxAttempts || triedVideos.size >= videoList.length) {
+              error.textContent = 'Tất cả video không tải được. Vui lòng kiểm tra link trong data.csv.';
+              return;
+            }
+            setTimeout(() => nextVideo(), 2000);
+          });
         currentVideoIndex = index;
-        saveVideoIndex(index); // Lưu chỉ số video vào localStorage
+        saveVideoIndex(index);
       }
     }
 
@@ -157,7 +196,6 @@
       if (currentVideoIndex < videoList.length - 1) {
         playVideo(currentVideoIndex + 1);
       } else {
-        // Optional: Quay lại video đầu tiên nếu muốn lặp danh sách
         playVideo(0);
       }
     }
