@@ -89,6 +89,9 @@
   <script>
     let videoList = [];
     let currentVideoIndex = 0;
+    let failedAttempts = 0;
+    const maxAttempts = 10; // Giới hạn số lần thử video không hợp lệ
+    const triedVideos = new Set(); // Theo dõi video đã thử
     const videoPlayer = document.getElementById("videoPlayer");
     const videoTitle = document.getElementById("videoTitle");
     const loading = document.getElementById("loading");
@@ -108,12 +111,12 @@
     // Hàm kiểm tra link video hợp lệ
     async function isValidVideo(url) {
       try {
-        const response = await fetch(url, { method: 'HEAD' });
-        const isValid = response.ok; // Không yêu cầu content-type
-        console.log(`Kiểm tra video ${url}: ${isValid ? 'OK' : 'Lỗi'} (Status: ${response.status}, Content-Type: ${response.headers.get('content-type') || 'N/A'})`);
+        const response = await fetch(url, { method: 'HEAD', mode: 'cors' });
+        const isValid = response.ok;
+        console.log(`Kiểm tra video ${url}: ${isValid ? 'OK' : 'Lỗi'} (Status: ${response.status}, Content-Type: ${response.headers.get('content-type') || 'N/A'}, Redirect: ${response.redirected ? response.url : 'None'})`);
         return isValid;
       } catch (err) {
-        console.error(`Lỗi kiểm tra video ${url}:`, err);
+        console.error(`Lỗi kiểm tra video ${url}:`, err.message);
         return false;
       }
     }
@@ -179,6 +182,12 @@
           loading.style.display = 'none';
           error.textContent = `Video "${video.title}" không tải được. Chuyển sang video khác...`;
           error.style.display = 'block';
+          failedAttempts++;
+          triedVideos.add(video.url);
+          if (failedAttempts >= maxAttempts || triedVideos.size >= videoList.length) {
+            error.textContent = 'Tất cả video không tải được. Vui lòng kiểm tra link trong data.csv.';
+            return;
+          }
           setTimeout(() => nextVideo(), 2000);
           return;
         }
@@ -187,14 +196,22 @@
         videoPlayer.currentTime = 0;
         videoTitle.textContent = video.title;
         videoPlayer.play().catch(err => {
-          console.error(`Lỗi phát video ${video.url}:`, err);
+          console.error(`Lỗi phát video ${video.url}:`, err.message);
           loading.style.display = 'none';
           error.textContent = `Lỗi phát video "${video.title}": ${err.message}. Chuyển sang video khác...`;
           error.style.display = 'block';
+          failedAttempts++;
+          triedVideos.add(video.url);
+          if (failedAttempts >= maxAttempts || triedVideos.size >= videoList.length) {
+            error.textContent = 'Tất cả video không tải được. Vui lòng kiểm tra link trong data.csv.';
+            return;
+          }
           setTimeout(() => nextVideo(), 2000);
         });
         currentVideoIndex = index;
         saveVideoIndex(index);
+        failedAttempts = 0; // Reset khi phát thành công
+        triedVideos.clear();
         loading.style.display = 'none';
       }
     }
