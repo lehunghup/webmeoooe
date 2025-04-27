@@ -82,7 +82,7 @@
       <button onclick="prevVideo()">Previous</button>
       <button onclick="nextVideo()">Next</button>
     </div>
-    <div class="loading" id="loading">Đang tải...</div>
+    <div class="loading" id="loading" style="display: none;">Đang tải...</div>
     <div class="error" id="error" style="display: none;"></div>
   </div>
 
@@ -109,8 +109,11 @@
     async function isValidVideo(url) {
       try {
         const response = await fetch(url, { method: 'HEAD' });
-        return response.ok && response.headers.get('content-type').includes('video');
-      } catch {
+        const isValid = response.ok; // Không yêu cầu content-type
+        console.log(`Kiểm tra video ${url}: ${isValid ? 'OK' : 'Lỗi'} (Status: ${response.status}, Content-Type: ${response.headers.get('content-type') || 'N/A'})`);
+        return isValid;
+      } catch (err) {
+        console.error(`Lỗi kiểm tra video ${url}:`, err);
         return false;
       }
     }
@@ -118,10 +121,11 @@
     // Tải file CSV từ GitHub
     fetch('https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data.csv')
       .then(response => {
-        if (!response.ok) throw new Error('Không tìm thấy file CSV');
+        if (!response.ok) throw new Error(`Không tìm thấy file CSV: ${response.status} ${response.statusText}`);
         return response.text();
       })
       .then(data => {
+        console.log('Nội dung CSV:', data);
         Papa.parse(data, {
           header: true,
           skipEmptyLines: true,
@@ -132,6 +136,7 @@
                 url: row.url.trim(),
                 title: row.title.trim()
               }));
+            console.log('Danh sách video:', videoList);
             loading.style.display = 'none';
             if (videoList.length > 0) {
               currentVideoIndex = getLastVideoIndex();
@@ -140,14 +145,14 @@
               }
               playVideo(currentVideoIndex);
             } else {
-              error.textContent = 'Không tìm thấy video hợp lệ trong danh sách';
+              error.textContent = 'Không tìm thấy video hợp lệ trong danh sách. Kiểm tra file data.csv có cột url và title hợp lệ.';
               error.style.display = 'block';
             }
           },
           error: (err) => {
             console.error('Lỗi parse CSV:', err);
             loading.style.display = 'none';
-            error.textContent = 'Lỗi đọc danh sách video';
+            error.textContent = 'Lỗi đọc danh sách video. Kiểm tra định dạng file data.csv có đúng 2 cột url,title.';
             error.style.display = 'block';
           }
         });
@@ -155,7 +160,7 @@
       .catch(err => {
         console.error('Lỗi tải CSV:', err);
         loading.style.display = 'none';
-        error.textContent = `Lỗi tải danh sách video: ${err.message}`;
+        error.textContent = `Lỗi tải file data.csv: ${err.message}. Kiểm tra URL hoặc file có tồn tại không.`;
         error.style.display = 'block';
       });
 
@@ -163,12 +168,14 @@
     async function playVideo(index) {
       if (index >= 0 && index < videoList.length) {
         const video = videoList[index];
+        console.log(`Phát video: ${video.title} (${video.url})`);
         error.style.display = 'none';
         loading.style.display = 'block';
 
         // Kiểm tra link video
         const isValid = await isValidVideo(video.url);
         if (!isValid) {
+          console.warn(`Video không hợp lệ: ${video.url}`);
           loading.style.display = 'none';
           error.textContent = `Video "${video.title}" không tải được. Chuyển sang video khác...`;
           error.style.display = 'block';
@@ -180,8 +187,9 @@
         videoPlayer.currentTime = 0;
         videoTitle.textContent = video.title;
         videoPlayer.play().catch(err => {
+          console.error(`Lỗi phát video ${video.url}:`, err);
           loading.style.display = 'none';
-          error.textContent = `Lỗi phát video: ${err.message}`;
+          error.textContent = `Lỗi phát video "${video.title}": ${err.message}. Chuyển sang video khác...`;
           error.style.display = 'block';
           setTimeout(() => nextVideo(), 2000);
         });
