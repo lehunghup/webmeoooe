@@ -117,14 +117,17 @@
 
     // Tải file CSV từ GitHub
     fetch('https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data.csv')
-      .then(response => response.text())
+      .then(response => {
+        if (!response.ok) throw new Error('Không tìm thấy file CSV');
+        return response.text();
+      })
       .then(data => {
         Papa.parse(data, {
           header: true,
           skipEmptyLines: true,
           complete: (result) => {
             videoList = result.data
-              .filter(row => row.url && row.title && row.url.endsWith('.mp4')) // Chỉ lấy dòng có url và title, url là MP4
+              .filter(row => row.url && row.title && row.url.endsWith('.mp4'))
               .map(row => ({
                 url: row.url.trim(),
                 title: row.title.trim()
@@ -152,7 +155,7 @@
       .catch(err => {
         console.error('Lỗi tải CSV:', err);
         loading.style.display = 'none';
-        error.textContent = 'Lỗi tải danh sách video';
+        error.textContent = `Lỗi tải danh sách video: ${err.message}`;
         error.style.display = 'block';
       });
 
