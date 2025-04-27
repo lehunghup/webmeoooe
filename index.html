@@ -110,14 +110,29 @@
       return result;
     }
 
-    // Tải file急 động file CSV từ GitHub
+    // Hàm lưu chỉ số video hiện tại vào localStorage
+    function saveVideoIndex(index) {
+      localStorage.setItem('lastVideoIndex', index);
+    }
+
+    // Hàm lấy chỉ số video cuối cùng từ localStorage
+    function getLastVideoIndex() {
+      const savedIndex = localStorage.getItem('lastVideoIndex');
+      return savedIndex !== null ? parseInt(savedIndex) : 0;
+    }
+
+    // Tải file CSV từ GitHub
     fetch('https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data.csv')
       .then(response => response.text())
       .then(data => {
         videoList = parseCSV(data);
         loading.style.display = 'none';
         if (videoList.length > 0) {
-          playVideo(0);
+          currentVideoIndex = getLastVideoIndex();
+          if (currentVideoIndex >= videoList.length) {
+            currentVideoIndex = 0; // Reset nếu chỉ số vượt quá danh sách
+          }
+          playVideo(currentVideoIndex);
         }
       })
       .catch(error => {
@@ -132,6 +147,7 @@
         videoTitle.textContent = videoList[index].title;
         videoPlayer.play();
         currentVideoIndex = index;
+        saveVideoIndex(index); // Lưu chỉ số video vào localStorage
       }
     }
 
