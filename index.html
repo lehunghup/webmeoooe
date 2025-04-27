@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Video Player</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -93,26 +94,6 @@
     const loading = document.getElementById("loading");
     const error = document.getElementById("error");
 
-    // Hàm parse CSV thành mảng đối tượng
-    function parseCSV(csvText) {
-      const lines = csvText.trim().split('\n');
-      const headers = lines[0].split(',').map(header => header.trim());
-      const urlIndex = headers.indexOf('url');
-      const titleIndex = headers.indexOf('title');
-      const result = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(col => col.trim());
-        if (cols[urlIndex] && cols[titleIndex]) {
-          result.push({
-            url: cols[urlIndex],
-            title: cols[titleIndex]
-          });
-        }
-      }
-      return result;
-    }
-
     // Hàm lưu chỉ số video hiện tại vào localStorage
     function saveVideoIndex(index) {
       localStorage.setItem('lastVideoIndex', index);
@@ -138,18 +119,35 @@
     fetch('https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data.csv')
       .then(response => response.text())
       .then(data => {
-        videoList = parseCSV(data);
-        loading.style.display = 'none';
-        if (videoList.length > 0) {
-          currentVideoIndex = getLastVideoIndex();
-          if (currentVideoIndex >= videoList.length) {
-            currentVideoIndex = 0;
+        Papa.parse(data, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (result) => {
+            videoList = result.data
+              .filter(row => row.url && row.title && row.url.endsWith('.mp4')) // Chỉ lấy dòng có url và title, url là MP4
+              .map(row => ({
+                url: row.url.trim(),
+                title: row.title.trim()
+              }));
+            loading.style.display = 'none';
+            if (videoList.length > 0) {
+              currentVideoIndex = getLastVideoIndex();
+              if (currentVideoIndex >= videoList.length) {
+                currentVideoIndex = 0;
+              }
+              playVideo(currentVideoIndex);
+            } else {
+              error.textContent = 'Không tìm thấy video hợp lệ trong danh sách';
+              error.style.display = 'block';
+            }
+          },
+          error: (err) => {
+            console.error('Lỗi parse CSV:', err);
+            loading.style.display = 'none';
+            error.textContent = 'Lỗi đọc danh sách video';
+            error.style.display = 'block';
           }
-          playVideo(currentVideoIndex);
-        } else {
-          error.textContent = 'Không tìm thấy video trong danh sách';
-          error.style.display = 'block';
-        }
+        });
       })
       .catch(err => {
         console.error('Lỗi tải CSV:', err);
@@ -171,12 +169,12 @@
           loading.style.display = 'none';
           error.textContent = `Video "${video.title}" không tải được. Chuyển sang video khác...`;
           error.style.display = 'block';
-          setTimeout(() => nextVideo(), 2000); // Chuyển video sau 2 giây
+          setTimeout(() => nextVideo(), 2000);
           return;
         }
 
         videoPlayer.src = video.url;
-        videoPlayer.currentTime = 0; // Phát từ đầu
+        videoPlayer.currentTime = 0;
         videoTitle.textContent = video.title;
         videoPlayer.play().catch(err => {
           loading.style.display = 'none';
@@ -195,7 +193,7 @@
       if (currentVideoIndex < videoList.length - 1) {
         playVideo(currentVideoIndex + 1);
       } else {
-        playVideo(0); // Quay lại đầu danh sách
+        playVideo(0);
       }
     }
 
