@@ -144,6 +144,7 @@
     function playVideo(index) {
       if (index >= 0 && index < videoList.length) {
         videoPlayer.src = videoList[index].url;
+        videoPlayer.currentTime = 0; // Đặt thời gian về 0 để phát từ đầu
         videoTitle.textContent = videoList[index].title;
         videoPlayer.play();
         currentVideoIndex = index;
@@ -155,6 +156,9 @@
     function nextVideo() {
       if (currentVideoIndex < videoList.length - 1) {
         playVideo(currentVideoIndex + 1);
+      } else {
+        // Optional: Quay lại video đầu tiên nếu muốn lặp danh sách
+        playVideo(0);
       }
     }
 
@@ -164,6 +168,11 @@
         playVideo(currentVideoIndex - 1);
       }
     }
+
+    // Tự động chuyển video khi kết thúc
+    videoPlayer.addEventListener('ended', () => {
+      nextVideo();
+    });
 
     // Tùy chọn: Cuộn để chuyển video (giống TikTok)
     let touchStartY = 0;
