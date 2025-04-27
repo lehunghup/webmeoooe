@@ -1,36 +1,167 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Media Library</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <title>Video Player</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: Arial, sans-serif;
+    }
+    .video-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .controls {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 20px;
+      box-sizing: border-box;
+      color: white;
+      opacity: 0.8;
+    }
+    .controls button {
+      background: rgba(0, 0, 0, 0.5);
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .controls button:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    .video-title {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 24px;
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Media Library</h1>
-    <div>
-      <label for="sort">Sort by:</label>
-      <select id="sort" onchange="sortMedia()">
-        <option value="id">ID</option>
-        <option value="title">Title</option>
-        <option value="how_long_ago">Upload Time</option>
-        <option value="size_formatted">Size</option>
-      </select>
-      <input type="file" id="csvFile" accept=".csv" onchange="loadCSV()">
+  <div class="video-container">
+    <video id="videoPlayer" controls autoplay>
+      <source src="" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+    <div class="video-title" id="videoTitle"></div>
+    <div class="controls">
+      <button onclick="prevVideo()">Previous</button>
+      <button onclick="nextVideo()">Next</button>
     </div>
-    <div id="errorMessage" style="color: red; text-align: center; margin: 10px 0;"></div>
-    <div id="mediaGrid" class="media-grid"></div>
+    <div class="loading" id="loading">Đang tải...</div>
   </div>
-  <!-- Modal for video playback -->
-  <div id="videoModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="closeModal()">×</span>
-      <h2 id="videoTitle"></h2>
-      <video id="modalVideo" controls style="width: 100%; max-height: 80vh;"></video>
-    </div>
-  </div>
-  <script src="script.js"></script>
+
+  <script>
+    let videoList = [];
+    let currentVideoIndex = 0;
+    const videoPlayer = document.getElementById("videoPlayer");
+    const videoTitle = document.getElementById("videoTitle");
+    const loading = document.getElementById("loading");
+
+    // Hàm parse CSV thành mảng đối tượng
+    function parseCSV(csvText) {
+      const lines = csvText.trim().split('\n');
+      const headers = lines[0].split(',').map(header => header.trim());
+      const urlIndex = headers.indexOf('url');
+      const titleIndex = headers.indexOf('title');
+      const result = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(col => col.trim());
+        if (cols[urlIndex] && cols[titleIndex]) {
+          result.push({
+            url: cols[urlIndex],
+            title: cols[titleIndex]
+          });
+        }
+      }
+      return result;
+    }
+
+    // Tải file急 động file CSV từ GitHub
+    fetch('https://raw.githubusercontent.com/lehunghup/webmeoooe/main/data.csv')
+      .then(response => response.text())
+      .then(data => {
+        videoList = parseCSV(data);
+        loading.style.display = 'none';
+        if (videoList.length > 0) {
+          playVideo(0);
+        }
+      })
+      .catch(error => {
+        console.error('Lỗi tải CSV:', error);
+        loading.textContent = 'Lỗi tải danh sách video';
+      });
+
+    // Hàm phát video hiện tại
+    function playVideo(index) {
+      if (index >= 0 && index < videoList.length) {
+        videoPlayer.src = videoList[index].url;
+        videoTitle.textContent = videoList[index].title;
+        videoPlayer.play();
+        currentVideoIndex = index;
+      }
+    }
+
+    // Chuyển đến video tiếp theo
+    function nextVideo() {
+      if (currentVideoIndex < videoList.length - 1) {
+        playVideo(currentVideoIndex + 1);
+      }
+    }
+
+    // Chuyển đến video trước đó
+    function prevVideo() {
+      if (currentVideoIndex > 0) {
+        playVideo(currentVideoIndex - 1);
+      }
+    }
+
+    // Tùy chọn: Cuộn để chuyển video (giống TikTok)
+    let touchStartY = 0;
+    window.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+    });
+    window.addEventListener('touchend', (e) => {
+      const touchEndY = e.changedTouches[0].clientY;
+      if (touchStartY - touchEndY > 50) {
+        nextVideo();
+      } else if (touchEndY - touchStartY > 50) {
+        prevVideo();
+      }
+    });
+  </script>
 </body>
 </html>
